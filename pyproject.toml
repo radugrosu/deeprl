@@ -11,12 +11,10 @@ dependencies = [
   "matplotlib>=3.10.1",
   "numpy>=2.2.4",
   "opencv-python>=4.11.0.86",
-  "polars>=1.26.0",
   "pytorch-ignite>=0.5.1",
   "stable-baselines3>=2.6.0",
   "standard-imghdr>=3.13.0",
   "tensorboard>=2.19.0",
-  "tensorboardx>=2.6.2.2",
   "torch>=2.6.0",
   "torchinfo>=1.8.0",
   "torchvision>=0.21.0",
@@ -30,7 +28,13 @@ requires-python = ">=3.13"
 version = "0.1.0"
 
 [tool.ruff]
-ignore = ["F722"] # Disables syntax errors for string annotations
+lint.ignore = ["F722"] # Disables syntax errors for string annotations
+
+[dependency-groups]
+dev = [
+    "mypy>=1.15.0",
+    "ruff>=0.11.2",
+]
 
 # [build-system]
 # build-backend = "hatchling.build"

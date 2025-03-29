@@ -151,13 +151,15 @@ def main(
     cuda: bool = True,
     mean_reward_bound: int = 19,
     gamma: float = 0.99,
-    batch_size: int = 32,
+    batch_size: int = 64,
     replay_size: int = 10000,
-    learning_rate: float = 1e-4,
-    sync_target_frames: int = 1000,
-    eps_decay_last_frame: int = 150000,
+    learning_rate: float = 5e-4,
+    sync_target_frames: int = 5000,
+    eps_decay_last_frame: int = 500000,
     eps_start: float = 1.0,
     eps_final: float = 0.01,
+    mean_reward_window: int = 100,
+    debug_log_interval: int = 100,
     ckp_root: str = "ckp",
     tb_root: str = "tb",
     log_root: str = "logs",
@@ -211,7 +213,7 @@ def main(
             speed = (frame_idx - ts_frame) / (time.time() - ts)
             ts_frame = frame_idx
             ts = time.time()
-            m_reward = np.mean(total_rewards[-100:])
+            m_reward = np.mean(total_rewards[-mean_reward_window:])
             pbar.set_description(f"it {frame_idx}")
             pbar.update(1)
             pbar.set_postfix(  # type: ignore
@@ -223,7 +225,7 @@ def main(
             )
             write_scalar(writer, "epsilon", epsilon, frame_idx)
             write_scalar(writer, "speed", speed, frame_idx)
-            write_scalar(writer, "reward_100", m_reward, frame_idx)
+            write_scalar(writer, "reward_mean", m_reward, frame_idx)
             write_scalar(writer, "reward", reward, frame_idx)
             if best_m_reward is None or best_m_reward < m_reward:
                 torch.save(  # type: ignore
@@ -253,18 +255,23 @@ def main(
         loss_t.backward()  # type: ignore
         optimizer.step()  # type: ignore
 
-        # Add logging for diagnostics
-        if frame_idx % 100 == 0:  # Log every 100 steps
+        if frame_idx % debug_log_interval == 0:
             with torch.no_grad():
                 # Get Q-values for the batch states
                 q_values = net(torch.tensor(batch.state, device=device))
                 # Get target Q-values (before masking dones)
-                next_q_values = tgt_net(torch.tensor(batch.next_state, device=device)).max(1)[0]
-                target_q_values = torch.tensor(batch.reward, device=device) + gamma * next_q_values
+                next_q_values = tgt_net(
+                    torch.tensor(batch.next_state, device=device)
+                ).max(1)[0]
+                target_q_values = (
+                    torch.tensor(batch.reward, device=device) + gamma * next_q_values
+                )
 
             write_scalar(writer, "loss", loss_t.item(), frame_idx)
             write_scalar(writer, "q_values_mean", q_values.mean().item(), frame_idx)
-            write_scalar(writer, "target_q_values_mean", target_q_values.mean().item(), frame_idx)
+            write_scalar(
+                writer, "target_q_values_mean", target_q_values.mean().item(), frame_idx
+            )
 
     writer.close()
 
