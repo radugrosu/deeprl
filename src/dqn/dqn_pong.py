@@ -252,6 +252,20 @@ def main(
         loss_t = calc_loss(batch, net, tgt_net, gamma, device)
         loss_t.backward()  # type: ignore
         optimizer.step()  # type: ignore
+
+        # Add logging for diagnostics
+        if frame_idx % 100 == 0:  # Log every 100 steps
+            with torch.no_grad():
+                # Get Q-values for the batch states
+                q_values = net(torch.tensor(batch.state, device=device))
+                # Get target Q-values (before masking dones)
+                next_q_values = tgt_net(torch.tensor(batch.next_state, device=device)).max(1)[0]
+                target_q_values = torch.tensor(batch.reward, device=device) + gamma * next_q_values
+
+            write_scalar(writer, "loss", loss_t.item(), frame_idx)
+            write_scalar(writer, "q_values_mean", q_values.mean().item(), frame_idx)
+            write_scalar(writer, "target_q_values_mean", target_q_values.mean().item(), frame_idx)
+
     writer.close()
 
 
